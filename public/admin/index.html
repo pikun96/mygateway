@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyGateway Admin</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    font-family:Arial,sans-serif;
+    background:#f5f7fb;
+    color:#111827;
+}
+
+header{
+    background:#111827;
+    color:white;
+    padding:18px;
+}
+
+header h2{
+    margin:0;
+}
+
+.container{
+    max-width:1100px;
+    margin:auto;
+    padding:20px;
+}
+
+.cards{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:15px;
+    margin-bottom:20px;
+}
+
+.card{
+    background:white;
+    padding:20px;
+    border-radius:14px;
+    box-shadow:0 3px 12px #00000012;
+}
+
+.card small{
+    color:#6b7280;
+}
+
+.card h2{
+    margin:8px 0 0;
+}
+
+.panel{
+    background:white;
+    padding:20px;
+    border-radius:14px;
+    margin-bottom:20px;
+    box-shadow:0 3px 12px #00000012;
+}
+
+input{
+    width:100%;
+    padding:13px;
+    margin:7px 0 14px;
+    border:1px solid #d1d5db;
+    border-radius:8px;
+    font-size:15px;
+}
+
+button{
+    border:0;
+    padding:12px 18px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:bold;
+}
+
+.save{
+    background:#111827;
+    color:white;
+}
+
+.refresh{
+    background:#e5e7eb;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th,td{
+    padding:12px;
+    border-bottom:1px solid #eee;
+    text-align:left;
+    font-size:14px;
+}
+
+.status{
+    padding:5px 9px;
+    border-radius:20px;
+    background:#eee;
+}
+
+.actions button{
+    margin:2px;
+}
+
+.approve{
+    background:#16a34a;
+    color:white;
+}
+
+.reject{
+    background:#dc2626;
+    color:white;
+}
+
+@media(max-width:700px){
+    .cards{
+        grid-template-columns:repeat(2,1fr);
+    }
+
+    .panel{
+        overflow-x:auto;
+    }
+
+    table{
+        min-width:800px;
+    }
+}
+</style>
+<style>
+table{width:100%;table-layout:fixed;}
+th,td{overflow-wrap:anywhere;word-break:break-word;}
+th:first-child,td:first-child{width:90px;}
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="container">
+        <h2 id="gatewayTitle">MyGateway</h2>
+        <small>Payment Gateway Admin Panel</small>
+    </div>
+</header>
+
+<div class="container">
+
+    <div class="cards">
+        <div class="card">
+            <small>Total Orders</small>
+            <h2 id="total">0</h2>
+        </div>
+
+        <div class="card">
+            <small>Pending</small>
+            <h2 id="pending">0</h2>
+        </div>
+
+        <div class="card">
+            <small>Processing</small>
+            <h2 id="processing">0</h2>
+        </div>
+
+        <div class="card">
+            <small>Approved</small>
+            <h2 id="approved">0</h2>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3>Gateway Settings</h3>
+
+        <label>Gateway Name</label>
+        <input id="gateway_name" placeholder="MyGateway">
+
+        <label>Merchant Name</label>
+        <input id="merchant_name" placeholder="Your Merchant Name">
+
+        <label>UPI ID</label>
+        <input id="upi_id" placeholder="example@upi">
+
+        <label>Logo URL</label>
+        <input id="logo_url" placeholder="https://...">
+
+        <label>Support</label>
+        <input id="support" placeholder="WhatsApp / Email">
+
+        <button class="save" onclick="saveSettings()">
+            Save Settings
+        </button>
+    </div>
+
+    <div class="panel">
+        <h3>Orders</h3>
+
+        <button class="refresh" onclick="loadOrders()">
+            Refresh Orders
+        </button>
+
+        <br><br>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Order ID</th>
+                    <th>Amount</th>
+                    <th>User</th>
+                    <th>Product</th>
+                    <th>UTR</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+
+            <tbody id="orders"></tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+
+async function loadSettings(){
+
+    const res = await fetch("/api/settings");
+    const data = await res.json();
+
+    if(!data.success) return;
+
+    const s = data.settings;
+
+    document.getElementById("gateway_name").value =
+        s.gateway_name || "";
+
+    document.getElementById("merchant_name").value =
+        s.merchant_name || "";
+
+    document.getElementById("upi_id").value =
+        s.upi_id || "";
+
+    document.getElementById("logo_url").value =
+        s.logo_url || "";
+
+    document.getElementById("support").value =
+        s.support || "";
+
+    document.getElementById("gatewayTitle").innerText =
+        s.gateway_name || "MyGateway";
+}
+
+async function saveSettings(){
+
+    const body = {
+        gateway_name:
+            document.getElementById("gateway_name").value,
+
+        merchant_name:
+            document.getElementById("merchant_name").value,
+
+        upi_id:
+            document.getElementById("upi_id").value,
+
+        logo_url:
+            document.getElementById("logo_url").value,
+
+        support:
+            document.getElementById("support").value
+    };
+
+    const res = await fetch("/api/settings",{
+        method:"POST",
+        headers:{
+            "Content-Type":"application/json"
+        },
+        body:JSON.stringify(body)
+    });
+
+    const data = await res.json();
+
+    alert(
+        data.success
+        ? "Settings saved successfully"
+        : data.message
+    );
+
+    loadSettings();
+}
+
+async function loadOrders(){
+
+    const res = await fetch("/api/admin/orders");
+    const data = await res.json();
+
+    if(!data.success) return;
+
+    const orders = data.orders;
+
+    document.getElementById("total").innerText =
+        orders.length;
+
+    document.getElementById("pending").innerText =
+        orders.filter(x => x.status === "PENDING").length;
+
+    document.getElementById("processing").innerText =
+        orders.filter(x => x.status === "PROCESSING").length;
+
+    document.getElementById("approved").innerText =
+        orders.filter(x => x.status === "APPROVED").length;
+
+    const tbody =
+        document.getElementById("orders");
+
+    tbody.innerHTML = "";
+
+    orders.forEach(order => {
+
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+            <td>${escapeHTML(order.order_id)}</td>
+            <td>₹${Number(order.amount).toFixed(2)}</td>
+            <td>${escapeHTML(order.user_id)}</td>
+            <td>${escapeHTML(order.product)}</td>
+            <td>${escapeHTML(order.utr || "-")}</td>
+            <td>
+                <span class="status">
+                    ${escapeHTML(order.status)}
+                </span>
+            </td>
+            <td class="actions">
+                <button
+                    class="approve"
+                    onclick="changeStatus('${encodeURIComponent(order.order_id)}','APPROVED')">
+                    Approve
+                </button>
+
+                <button
+                    class="reject"
+                    onclick="changeStatus('${encodeURIComponent(order.order_id)}','REJECTED')">
+                    Reject
+                </button>
+            </td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+}
+
+async function changeStatus(orderId,status){
+
+    orderId = decodeURIComponent(orderId);
+
+    const res = await fetch(
+        "/api/admin/order/" +
+        encodeURIComponent(orderId) +
+        "/status",
+        {
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify({status})
+        }
+    );
+
+    const data = await res.json();
+
+    if(data.success){
+        loadOrders();
+    }else{
+        alert(data.message);
+    }
+}
+
+function escapeHTML(value){
+
+    return String(value ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+}
+
+loadSettings();
+loadOrders();
+
+</script>
+
+</body>
+</html>

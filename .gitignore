@@ -1,0 +1,6 @@
+node_modules/
+.env
+*.backup.*
+server.before-*.js
+patch-*.js
+database.json

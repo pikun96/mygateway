@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payment</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    font-family:Arial,sans-serif;
+    background:#f5f7fb;
+    color:#111827;
+}
+
+.container{
+    max-width:460px;
+    margin:auto;
+    padding:25px 16px;
+}
+
+.header{
+    text-align:center;
+    padding:20px 0;
+}
+
+.logo{
+    width:60px;
+    height:60px;
+    border-radius:15px;
+    object-fit:cover;
+    display:none;
+    margin:auto;
+}
+
+.gateway{
+    font-size:24px;
+    font-weight:800;
+    margin-top:10px;
+}
+
+.card{
+    background:white;
+    border-radius:20px;
+    padding:25px;
+    box-shadow:0 5px 25px #00000012;
+    text-align:center;
+}
+
+.amount{
+    font-size:36px;
+    font-weight:800;
+    margin:10px 0;
+}
+
+.product{
+    color:#6b7280;
+    margin-bottom:20px;
+}
+
+.qr{
+    width:240px;
+    height:240px;
+    object-fit:contain;
+    margin:10px auto 20px;
+    display:block;
+}
+
+.upi{
+    display:block;
+    width:100%;
+    padding:14px;
+    border-radius:10px;
+    background:#111827;
+    color:white;
+    text-decoration:none;
+    font-weight:bold;
+    margin-bottom:22px;
+}
+
+.divider{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    color:#9ca3af;
+    font-size:13px;
+    margin:20px 0;
+}
+
+.divider:before,
+.divider:after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:#e5e7eb;
+}
+
+input{
+    width:100%;
+    padding:14px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+    font-size:16px;
+    outline:none;
+}
+
+.submit{
+    width:100%;
+    margin-top:12px;
+    padding:14px;
+    border:0;
+    border-radius:10px;
+    background:#16a34a;
+    color:white;
+    font-size:16px;
+    font-weight:bold;
+}
+
+.status{
+    margin-top:15px;
+    padding:12px;
+    border-radius:10px;
+    display:none;
+}
+
+.info{
+    margin-top:20px;
+    text-align:center;
+    color:#6b7280;
+    font-size:13px;
+}
+
+.order{
+    font-size:12px;
+    color:#9ca3af;
+    word-break:break-all;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <img id="logo" class="logo">
+        <div id="gateway" class="gateway">
+            MyGateway
+        </div>
+    </div>
+
+    <div class="card">
+
+        <div>Pay Amount</div>
+
+        <div id="amount" class="amount">
+            ₹0.00
+        </div>
+
+        <div id="product" class="product"></div>
+
+        <img id="qr" class="qr" alt="Payment QR">
+
+        <a id="upiButton" class="upi">
+            Pay with UPI App
+        </a>
+
+        <div class="divider">
+            After payment
+        </div>
+
+        <div style="text-align:left">
+            <label>
+                UTR / Transaction ID
+            </label>
+
+            <input
+                id="utr"
+                placeholder="Enter your UTR"
+                autocomplete="off">
+        </div>
+
+        <button
+            class="submit"
+            onclick="submitUTR()">
+            Submit Payment
+        </button>
+
+        <div id="status" class="status"></div>
+
+        <div class="info">
+            Please complete the payment before submitting UTR.
+        </div>
+
+        <div id="order" class="order"></div>
+
+    </div>
+
+</div>
+
+<script>
+
+const orderId =
+    decodeURIComponent(
+        location.pathname.split("/").pop()
+    );
+
+let currentOrder = null;
+
+function showStatus(message,success){
+
+    const box =
+        document.getElementById("status");
+
+    box.style.display = "block";
+    box.innerText = message;
+
+    box.style.background =
+        success ? "#dcfce7" : "#fee2e2";
+
+    box.style.color =
+        success ? "#166534" : "#991b1b";
+}
+
+async function loadPayment(){
+
+    try{
+
+        const orderRes =
+            await fetch(
+                "/api/order/" +
+                encodeURIComponent(orderId)
+            );
+
+        const orderData =
+            await orderRes.json();
+
+        if(!orderData.success){
+            showStatus(
+                "Order not found",
+                false
+            );
+            return;
+        }
+
+        currentOrder = orderData.order;
+
+        document.getElementById("amount")
+            .innerText =
+            "₹" +
+            Number(currentOrder.amount)
+                .toFixed(2);
+
+        document.getElementById("product")
+            .innerText =
+            currentOrder.product || "";
+
+        document.getElementById("order")
+            .innerText =
+            "Order ID: " +
+            currentOrder.order_id;
+
+        const settingsRes =
+            await fetch("/api/settings");
+
+        const settingsData =
+            await settingsRes.json();
+
+        if(settingsData.success){
+
+            const s =
+                settingsData.settings;
+
+            document.getElementById("gateway")
+                .innerText =
+                s.gateway_name || "MyGateway";
+
+            if(s.logo_url){
+
+                const logo =
+                    document.getElementById("logo");
+
+                logo.src = s.logo_url;
+                logo.style.display = "block";
+            }
+        }
+
+        const qrRes =
+            await fetch(
+                "/api/payment/qr/" +
+                encodeURIComponent(orderId)
+            );
+
+        const qrData =
+            await qrRes.json();
+
+        if(!qrData.success){
+
+            showStatus(
+                qrData.message,
+                false
+            );
+
+            return;
+        }
+
+        document.getElementById("qr")
+            .src = qrData.qr;
+
+        document.getElementById("upiButton")
+            .href = qrData.upiUrl;
+
+    }catch(error){
+
+        showStatus(
+            "Unable to load payment",
+            false
+        );
+    }
+}
+
+async function submitUTR(){
+
+    const utr =
+        document.getElementById("utr")
+            .value.trim();
+
+    if(utr.length < 6){
+
+        showStatus(
+            "Please enter a valid UTR.",
+            false
+        );
+
+        return;
+    }
+
+    const button =
+        document.querySelector(".submit");
+
+    button.disabled = true;
+    button.innerText = "Submitting...";
+
+    try{
+
+        const res =
+            await fetch(
+                "/api/order/" +
+                encodeURIComponent(orderId) +
+                "/utr",
+                {
+                    method:"POST",
+                    headers:{
+                        "Content-Type":
+                        "application/json"
+                    },
+                    body:JSON.stringify({
+                        utr:utr
+                    })
+                }
+            );
+
+        const data =
+            await res.json();
+
+        if(data.success){
+
+            showStatus(
+                "UTR submitted. Payment is now under processing.",
+                true
+            );
+
+            button.innerText =
+                "Submitted";
+
+        }else{
+
+            showStatus(
+                data.message ||
+                "Submission failed.",
+                false
+            );
+
+            button.disabled = false;
+            button.innerText =
+                "Submit Payment";
+        }
+
+    }catch(error){
+
+        showStatus(
+            "Network error. Please try again.",
+            false
+        );
+
+        button.disabled = false;
+        button.innerText =
+            "Submit Payment";
+    }
+}
+
+loadPayment();
+
+</script>
+
+</body>
+</html>
